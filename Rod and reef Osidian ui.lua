@@ -1,4 +1,4 @@
--- // Obsidian UI - Rod And Reef Beta (Custom Keybind System)
+-- // Obsidian UI - Rod And Reef Beta (NPC Search Added)
 
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"))()
 local Players = game:GetService("Players")
@@ -18,6 +18,7 @@ local Window = Library:CreateWindow({
 
 local AutoFarmTab = Window:AddTab("Auto Farm", "zap")
 local PlayerTab = Window:AddTab("Player", "user")
+local TeleportTab = Window:AddTab("Teleport", "map")
 local SettingsTab = Window:AddTab("Settings", "settings")
 
 -- ============================================================
@@ -123,7 +124,6 @@ SettingsGroup:AddDivider()
 
 SettingsGroup:AddToggle("AutoFisher", {
 	Text = "Enable Auto Fisher (Cast + Insta Catch)",
-	Tooltip = "Auto-casts and instantly completes minigames",
 	Default = false,
 	Risky = true,
 	Callback = function(Value)
@@ -150,50 +150,35 @@ SettingsGroup:AddToggle("AutoFisher", {
 	end,
 })
 
--- // CUSTOM KEYBIND SYSTEM
 SettingsGroup:AddDivider()
 SettingsGroup:AddLabel("⌨️ Quick Toggle Shortcut:", true)
 
-local autoFishKey = Enum.KeyCode.F -- Default key
+local autoFishKey = Enum.KeyCode.F
 local isListeningForKey = false
 
 SettingsGroup:AddButton({
 	Text = "Set Auto Fisher Shortcut",
-	Tooltip = "Click this, then press any key on your keyboard.",
 	Func = function()
 		if not isListeningForKey then
 			isListeningForKey = true
-			Library:Notify({ 
-				Title = "Listening...", 
-				Description = "Press any key to set as your shortcut!", 
-				Time = 5 
-			})
+			Library:Notify({ Title = "Listening...", Description = "Press any key to set as your shortcut!", Time = 5 })
 		end
 	end,
 })
 
 SettingsGroup:AddLabel("💡 Tip: Works even when the UI is closed!", true)
 
--- Global Input Listener (Handles both setting the key and triggering it)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if UserInputService:GetFocusedTextBox() then return end
-
-	-- 1. Check if we are waiting for a key to be set
 	if isListeningForKey then
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			autoFishKey = input.KeyCode
 			isListeningForKey = false
-			Library:Notify({
-				Title = "Shortcut Updated!",
-				Description = "Auto Fisher key is now: " .. autoFishKey.Name,
-				Time = 3
-			})
+			Library:Notify({ Title = "Shortcut Updated!", Description = "Auto Fisher key is now: " .. autoFishKey.Name, Time = 3 })
 		end
-		return -- Don't trigger the toggle while setting the key
+		return
 	end
-
-	-- 2. Check if the pressed key matches our saved key
 	if input.KeyCode == autoFishKey then
 		local currentState = Library.Toggles.AutoFisher.Value
 		Library.Toggles.AutoFisher:SetValue(not currentState)
@@ -229,14 +214,10 @@ PlayerGroup:AddDivider()
 local flyThread = nil
 local flyBody = nil
 
-PlayerGroup:AddSlider("FlySpeed", {
-	Text = "Fly Speed", Default = 50, Min = 10, Max = 300, Rounding = 0,
-	Tooltip = "How fast you fly when Fly is enabled.",
-})
+PlayerGroup:AddSlider("FlySpeed", { Text = "Fly Speed", Default = 50, Min = 10, Max = 300, Rounding = 0 })
 
 PlayerGroup:AddToggle("Fly", {
 	Text = "Enable Fly",
-	Tooltip = "WASD to move, Space up, LeftCtrl down. Follows your camera!",
 	Default = false,
 	Risky = true,
 	Callback = function(Value)
@@ -248,17 +229,14 @@ PlayerGroup:AddToggle("Fly", {
 			Library.Toggles.Fly:SetValue(false)
 			return
 		end
-
 		if Value then
 			hum.WalkSpeed = 0
 			hum.JumpPower = 0
-
 			flyBody = Instance.new("BodyVelocity")
 			flyBody.Name = "RR_FlyBody"
 			flyBody.MaxForce = Vector3.new(1e4, 1e4, 1e4)
 			flyBody.Velocity = Vector3.new(0, 0, 0)
 			flyBody.Parent = hrp
-
 			flyThread = task.spawn(function()
 				local camera = Workspace.CurrentCamera
 				while Library.Toggles.Fly.Value and flyBody and flyBody.Parent do
@@ -269,12 +247,10 @@ PlayerGroup:AddToggle("Fly", {
 					if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camera.CFrame.RightVector end
 					if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
 					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
-
 					if move.Magnitude > 0 then move = move.Unit end
 					flyBody.Velocity = move * Library.Options.FlySpeed.Value
 					task.wait()
 				end
-
 				if flyBody then flyBody:Destroy() flyBody = nil end
 				if hum and hum.Parent then
 					hum.WalkSpeed = Library.Options.WalkSpeed.Value
@@ -298,7 +274,6 @@ PlayerGroup:AddDivider()
 
 PlayerGroup:AddToggle("Teleport", {
 	Text = "Enable Teleport (Ctrl + Click)",
-	Tooltip = "Hold Left Ctrl and click anywhere to teleport there.",
 	Default = false,
 	Risky = false,
 	Callback = function(Value)
@@ -341,6 +316,148 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ============================================================
+-- // TELEPORT TAB (ISLANDS + NPC SEARCH)
+-- ============================================================
+local TeleportGroup = TeleportTab:AddGroupbox({ Side = "Left", Name = "Island Teleports" })
+
+local teleportLocations = {
+	["Corvane"] = Vector3.new(3766.02, 17.36, 64.31),
+	["Verdant Isle"] = Vector3.new(-104.94, 35.89, 11.76)
+}
+
+local locationNames = {}
+for name, _ in pairs(teleportLocations) do
+	table.insert(locationNames, name)
+end
+
+TeleportGroup:AddLabel("🗺️ Quick Travel:", true)
+TeleportGroup:AddLabel("Select an island to instantly travel.", true)
+TeleportGroup:AddDivider()
+
+TeleportGroup:AddDropdown("IslandSelect", {
+	Values = locationNames,
+	Default = "Verdant Isle",
+	Multi = false,
+	Text = "Select Destination",
+})
+
+TeleportGroup:AddButton({
+	Text = "Teleport to Island",
+	Func = function()
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local selectedIsland = Library.Options.IslandSelect.Value
+			local targetPos = teleportLocations[selectedIsland]
+			if targetPos then
+				hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+				Library:Notify({ Title = "Teleported!", Description = "Successfully moved to " .. selectedIsland .. ".", Time = 3 })
+			else
+				Library:Notify({ Title = "Error", Description = "Coordinates not found for " .. selectedIsland, Time = 3 })
+			end
+		else
+			Library:Notify({ Title = "Error", Description = "Character not found! Make sure you are alive.", Time = 3 })
+		end
+	end
+})
+
+-- // NEW: NPC TELEPORT SCANNER WITH SEARCH
+local NPCGroup = TeleportTab:AddGroupbox({ Side = "Right", Name = "NPC Teleports" })
+
+local npcFolder = Workspace:WaitForChild("DialogueNPCs", 10)
+local npcDatabase = {}
+
+if npcFolder then
+	for _, model in ipairs(npcFolder:GetChildren()) do
+		if model:IsA("Model") then
+			local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+			if root then
+				table.insert(npcDatabase, { Name = model.Name, Pos = root.Position })
+			end
+		end
+	end
+end
+
+table.sort(npcDatabase, function(a, b) return a.Name < b.Name end)
+
+local allNpcNames = {}
+for _, npc in ipairs(npcDatabase) do
+	table.insert(allNpcNames, npc.Name)
+end
+
+local NPCDropdown = nil -- declared early so the search callback can reference it
+
+NPCGroup:AddLabel("🤖 Found " .. #allNpcNames .. " NPCs", true)
+NPCGroup:AddLabel("Type below to search, then teleport.", true)
+NPCGroup:AddDivider()
+
+-- Search box that live-filters the dropdown
+NPCGroup:AddTextBox("NPCSearch", {
+	Text = "Search NPC",
+	Placeholder = "Type to filter NPCs...",
+	Clearable = true,
+	Callback = function(Value)
+		local filter = string.lower(Value or "")
+		local filtered = {}
+		if filter == "" then
+			for _, n in ipairs(allNpcNames) do table.insert(filtered, n) end
+		else
+			for _, name in ipairs(allNpcNames) do
+				if string.find(string.lower(name), filter, 1, true) then
+					table.insert(filtered, name)
+				end
+			end
+		end
+		if #filtered == 0 then filtered = {"No NPCs found"} end
+
+		if NPCDropdown then
+			-- Try live-updating the dropdown values
+			local ok = pcall(function()
+				NPCDropdown:Set({ Values = filtered, Default = filtered[1] })
+			end)
+			if not ok then
+				-- Fallback: destroy & recreate if this Obsidian build lacks Set()
+				NPCDropdown:Destroy()
+				NPCDropdown = NPCGroup:AddDropdown("NPCSelect", {
+					Values = filtered,
+					Default = filtered[1],
+					Multi = false,
+					Text = "Select NPC",
+				})
+			end
+		end
+	end,
+})
+
+NPCDropdown = NPCGroup:AddDropdown("NPCSelect", {
+	Values = allNpcNames,
+	Default = allNpcNames[1] or "None",
+	Multi = false,
+	Text = "Select NPC",
+})
+
+NPCGroup:AddButton({
+	Text = "Teleport to NPC",
+	Func = function()
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if not hrp then
+			Library:Notify({ Title = "Error", Description = "Character not found!", Time = 3 })
+			return
+		end
+		local selectedNPC = Library.Options.NPCSelect.Value
+		for _, npc in ipairs(npcDatabase) do
+			if npc.Name == selectedNPC then
+				hrp.CFrame = CFrame.new(npc.Pos + Vector3.new(0, 5, 0))
+				Library:Notify({ Title = "Teleported!", Description = "Moved to " .. selectedNPC, Time = 2 })
+				return
+			end
+		end
+		Library:Notify({ Title = "Error", Description = "NPC '" .. tostring(selectedNPC) .. "' not found.", Time = 2 })
+	end
+})
+
+-- ============================================================
 -- // SETTINGS TAB
 -- ============================================================
 local ThemeGroup = SettingsTab:AddGroupbox({ Side = "Left", Name = "Appearance" })
@@ -350,7 +467,6 @@ ThemeGroup:AddDropdown("ThemeSelect", {
 	Default = "Default (Gray)",
 	Multi = false,
 	Text = "UI Theme Color",
-	Tooltip = "Changes the accent color of the UI.",
 	Callback = function(Value)
 		local colors = {
 			["Default (Gray)"] = Color3.fromRGB(99, 99, 99),
@@ -363,12 +479,10 @@ ThemeGroup:AddDropdown("ThemeSelect", {
 		}
 		local color = colors[Value]
 		local applied = false
-
 		pcall(function() if Library.SetAccent then Library:SetAccent(color) applied = true end end)
 		pcall(function() if Window.SetAccent then Window:SetAccent(color) applied = true end end)
 		pcall(function() if Window.SetColor then Window:SetColor(color) applied = true end end)
 		pcall(function() if Library.Color then Library.Color = color applied = true end end)
-
 		if applied then
 			Library:Notify({ Title = "Theme Changed", Description = "Applied " .. Value .. "!", Time = 2 })
 		else
@@ -377,4 +491,4 @@ ThemeGroup:AddDropdown("ThemeSelect", {
 	end,
 })
 
-Library:Notify({ Title = "Rod And Reef Beta Loaded", Description = "Custom Keybind system ready!", Time = 4 })
+Library:Notify({ Title = "Rod And Reef Beta Loaded", Description = "Scanned " .. #allNpcNames .. " NPCs! Use the search box.", Time = 4 })
