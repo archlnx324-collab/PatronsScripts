@@ -2,6 +2,7 @@
 -- 1. LOAD UI LIBRARY & CREATE WINDOW
 -- =========================================================================
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/archlnx324-collab/PatronsScripts/refs/heads/main/library.lua"))()
+local TweenService = game:GetService("TweenService")
 
 local Window = Library:CreateWindow({
     Name = "Fisch Auto - Optimized",
@@ -11,8 +12,95 @@ local Window = Library:CreateWindow({
 })
 
 -- =========================================================================
+-- 2. ANIMATED UI TOGGLE FUNCTION (Matches Library's Built-in Animation)
+-- =========================================================================
+local function toggleUI()
+    local possibleParents = {
+        game:GetService("CoreGui"),
+        game:GetService("Players").LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
+    }
+    
+    -- Support for executors that use gethui()
+    if type(gethui) == "function" then
+        local success, hui = pcall(gethui)
+        if success and hui then
+            table.insert(possibleParents, 1, hui)
+        end
+    end
+
+    for _, parent in ipairs(possibleParents) do
+        if parent then
+            local gui = parent:FindFirstChild("MatteRoundedUILibrary")
+            if gui then
+                local mainFrame = gui:FindFirstChild("MainWindow")
+                if mainFrame then
+                    local uiScale = mainFrame:FindFirstChildOfClass("UIScale")
+                    
+                    if mainFrame.Visible then
+                        -- Closing animation (shrink and hide)
+                        local closeTween = TweenService:Create(uiScale, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Scale = 0.92 })
+                        closeTween:Play()
+                        closeTween.Completed:Connect(function()
+                            mainFrame.Visible = false
+                        end)
+                    else
+                        -- Opening animation (show and grow)
+                        mainFrame.Visible = true
+                        uiScale.Scale = 0.92
+                        TweenService:Create(uiScale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+                    end
+                    return -- Successfully toggled
+                end
+            end
+        end
+    end
+end
+-- =========================================================================
 -- 2. SERVICES & DECOMPILED PATHS SETUP
 -- =========================================================================
+local function toggleUI()
+    local possibleParents = {
+        game:GetService("CoreGui"),
+        game:GetService("Players").LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
+    }
+    
+    -- Support for executors that use gethui()
+    if type(gethui) == "function" then
+        local success, hui = pcall(gethui)
+        if success and hui then
+            table.insert(possibleParents, 1, hui)
+        end
+    end
+
+    for _, parent in ipairs(possibleParents) do
+        if parent then
+            local gui = parent:FindFirstChild("MatteRoundedUILibrary")
+            if gui then
+                local mainFrame = gui:FindFirstChild("MainWindow")
+                if mainFrame then
+                    local uiScale = mainFrame:FindFirstChildOfClass("UIScale")
+                    
+                    if mainFrame.Visible then
+                        -- Closing animation (shrink and hide)
+                        local closeTween = TweenService:Create(uiScale, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Scale = 0.92 })
+                        closeTween:Play()
+                        closeTween.Completed:Connect(function()
+                            mainFrame.Visible = false
+                        end)
+                    else
+                        -- Opening animation (show and grow)
+                        mainFrame.Visible = true
+                        uiScale.Scale = 0.92
+                        TweenService:Create(uiScale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+                    end
+                    return -- Successfully toggled
+                end
+            end
+        end
+    end
+end
+
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -326,17 +414,9 @@ local FishingTab = Window:CreateTab({
 })
 
 local ControlsGroup = FishingTab:AddGroup("Left", "Controls")
-local TuningGroup = FishingTab:AddGroup("Right", "Tuning")
-
-ControlsGroup:AddButton({
-    Text = "Teleport to Nearest Treasure",
-    Callback = function()
-        print("Teleporting to treasure...")
-    end
-})
 
 ControlsGroup:AddToggle({
-    Text = "Fishing Auto",
+    Text = "Auto Fish",
     Default = config.enabled,
     Callback = function(state)
         if state then
@@ -349,26 +429,6 @@ ControlsGroup:AddToggle({
     end
 })
 
-TuningGroup:AddSlider({
-    Text = "Reel Lead (Lookahead)",
-    Min = 0.00,
-    Max = 0.50,
-    Step = 0.01,
-    Decimals = 2,
-    Default = config.lookahead,
-    Callback = function(v)
-        config.lookahead = v
-    end
-})
-
-TuningGroup:AddToggle({
-    Text = "Instant Catch",
-    Default = config.instantCatch,
-    Callback = function(state)
-        config.instantCatch = state
-        print("[fish] Instant Catch " .. (state and "Enabled" or "Disabled"))
-    end
-})
 
 -- =========================================================================
 -- 6. TELEPORT TAB SETUP (WITH SEARCH)
@@ -697,3 +757,26 @@ pcall(function()
         Duration = 3
     })
 end)
+
+-- =========================================================================
+-- 3. CREATE TABS & DYNAMIC KEYBIND
+-- =========================================================================
+local Tab = Window:CreateTab({
+    Name = "Settings",
+    Icon = "configs"
+})
+
+local Group = Tab:AddGroup("Left", "UI Controls")
+
+Group:AddKeybind({
+    Text = "Toggle UI",
+    Default = Enum.KeyCode.RightShift,
+    
+    OnChanged = function(newKey)
+        print("UI will now toggle with: " .. newKey.Name)
+    end,
+    
+    Callback = function()
+        toggleUI()
+    end
+})
